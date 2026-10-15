@@ -34,6 +34,7 @@ cd frontend
 cp .env.example .env.local
 # Edit .env.local: same BACKEND_API_KEY; unique APP_PASSWORD;
 # SESSION_SECRET must be at least 32 random characters.
+# APP_ORIGIN must match your browser URL (default http://localhost:3000).
 npm install
 npm run dev
 ```
@@ -71,3 +72,7 @@ HTTPS and secret storage. No hosting resources are created by this repository.
 No paid AI calls are needed for default tests. See VERIFICATION.md for the
 checks performed at import time. Existing migration 0001 uses model metadata;
 future schema changes need explicit, immutable Alembic revisions.
+
+Origin protection uses explicit APP_ORIGIN rather than the internal request
+URL. Set APP_ORIGIN to the exact frontend origin, including the port locally.
+Missing configuration fails closed; foreign-origin mutations remain blocked.

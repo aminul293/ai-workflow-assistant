@@ -50,7 +50,7 @@ def main():
         api = f'http://127.0.0.1:{api_port}'
         web = f'http://127.0.0.1:{web_port}'
         env = {**os.environ, 'DATABASE_URL': 'sqlite:///' + str(Path(tmp) / 'test.db'),
-               'BACKEND_URL': api, 'BACKEND_API_KEY': secrets.token_hex(24),
+               'APP_ORIGIN': web, 'BACKEND_URL': api, 'BACKEND_API_KEY': secrets.token_hex(24),
                'APP_USERNAME': 'synthetic-test-owner', 'APP_PASSWORD': secrets.token_hex(24),
                'SESSION_SECRET': secrets.token_hex(32), 'AI_PROVIDER': 'mock',
                'NODE_ENV': 'production', 'NEXT_TELEMETRY_DISABLED': '1',

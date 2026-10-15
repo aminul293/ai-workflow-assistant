@@ -1,12 +1,13 @@
 import {NextRequest,NextResponse} from 'next/server';
 import {createHmac,timingSafeEqual} from 'node:crypto';
+import {isAllowedOrigin} from '../../../../lib/request-origin.mjs';
 export const runtime='nodejs';
 function equal(a:string,b:string){const x=Buffer.from(a),y=Buffer.from(b);return x.length===y.length&&timingSafeEqual(x,y)}
 export async function POST(req:NextRequest){
  const secret=process.env.SESSION_SECRET||'';
  const username=process.env.APP_USERNAME||'';const password=process.env.APP_PASSWORD||'';
- if(secret.length<32||!username||!password)return NextResponse.json({detail:'Server authentication not configured'},{status:503});
- if(req.headers.get('origin')!==req.nextUrl.origin)return NextResponse.json({detail:'Invalid origin'},{status:403});
+ if(secret.length<32||!username||!password||!process.env.APP_ORIGIN)return NextResponse.json({detail:'Server authentication not configured'},{status:503});
+ if(!isAllowedOrigin(req.headers.get('origin'),process.env.APP_ORIGIN))return NextResponse.json({detail:'Invalid origin'},{status:403});
  let body:{username?:unknown;password?:unknown};
  try{body=await req.json()}catch{return NextResponse.json({detail:'Invalid JSON'},{status:400})}
  if(typeof body.username!=='string'||typeof body.password!=='string'||!equal(body.username,username)||!equal(body.password,password))

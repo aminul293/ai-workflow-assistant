@@ -4,7 +4,7 @@
 
 - Source ZIP integrity check: passed.
 - Backend pytest: 20 passed.
-- Frontend checks: 16 passed (11 source checks, 5 executable routing tests).
+- Frontend checks: 21 passed (11 source checks, 5 routing tests, 5 origin tests).
 - Live backend HTTP smoke: passed using a fresh migrated temporary SQLite DB.
 - Full-stack HTTP test script: syntax checked; not executed locally.
 - Basic credential-pattern scan: no matches in candidate source files.
@@ -26,3 +26,11 @@ results; this document does not assert they passed. Real-browser E2E, live
 OpenAI processing, PostgreSQL and cloud deployment remain unverified.
 
 A credential-pattern scan is not a comprehensive secret or security audit.
+
+## First GitHub run
+
+Commit 9460561 completed the production Next.js build and passed backend and
+frontend source/routing jobs. The added full-stack HTTP test exposed a login
+origin mismatch. The follow-up correction requires explicit APP_ORIGIN for
+login and mutation checks and adds five executable origin validation tests.
+The subsequent CI run, not this historical note, determines final status.

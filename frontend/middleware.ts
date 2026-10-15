@@ -1,4 +1,6 @@
 import {NextRequest,NextResponse} from 'next/server';
+import {isAllowedOrigin} from './lib/request-origin.mjs';
+
 const COOKIE='awa_session';
 const encoder=new TextEncoder();
 function constantTimeEqual(a:string,b:string){let d=a.length^b.length;for(let i=0;i<Math.max(a.length,b.length);i++)d|=(a.charCodeAt(i)||0)^(b.charCodeAt(i)||0);return d===0;}
@@ -12,8 +14,8 @@ async function validSession(value:string,secret:string):Promise<boolean>{
 }
 export async function middleware(req:NextRequest){
  const secret=process.env.SESSION_SECRET;
- if(!secret || secret.length<32 || !process.env.APP_USERNAME || !process.env.APP_PASSWORD)
-  return new NextResponse('Configure APP_USERNAME, APP_PASSWORD and SESSION_SECRET (32+ chars)',{status:503});
+ if(!secret || secret.length<32 || !process.env.APP_USERNAME || !process.env.APP_PASSWORD || !process.env.APP_ORIGIN)
+  return new NextResponse('Configure APP_ORIGIN, APP_USERNAME, APP_PASSWORD and SESSION_SECRET (32+ chars)',{status:503});
  const path=req.nextUrl.pathname;
  const publicPath=path==='/login'||path==='/api/auth/login';
  if(publicPath){
@@ -27,9 +29,9 @@ export async function middleware(req:NextRequest){
  }
  if(!['GET','HEAD','OPTIONS'].includes(req.method)){
   const origin=req.headers.get('origin');
-  if(!origin || origin!==req.nextUrl.origin)return NextResponse.json({detail:'Invalid request origin'},{status:403});
+  if(!isAllowedOrigin(origin,process.env.APP_ORIGIN))return NextResponse.json({detail:'Invalid request origin'},{status:403});
  }
- const result=NextResponse.next();
+  const result=NextResponse.next();
  result.headers.set('X-Content-Type-Options','nosniff');
  result.headers.set('Referrer-Policy','no-referrer');
  result.headers.set('X-Frame-Options','DENY');
