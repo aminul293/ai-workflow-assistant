@@ -1,0 +1,2 @@
+import {NextResponse} from 'next/server';
+export async function POST(){const r=NextResponse.json({ok:true},{headers:{'Cache-Control':'no-store'}});r.cookies.set('awa_session','',{maxAge:0,path:'/',httpOnly:true,sameSite:'strict'});return r;}
