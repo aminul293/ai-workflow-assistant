@@ -1,16 +1,18 @@
 # AI Workflow Assistant
 
-Solo-founder AI workflow application (v1.0 source release candidate).
+**Repository status: INCOMPLETE SOURCE IMPORT (October 15, 2026)**
 
-## Project status
-The repository is being initialized. **The full frontend and backend source are not yet uploaded.** No deployment is live.
+This repository is currently public by the owner's choice. It contains initial documentation, ignore rules, a frontend package manifest, a Python dependency manifest and a CI workflow, **but not yet the application source**. Do not deploy this repository in its current state; CI jobs that require the missing app and tests will fail.
 
-The prepared v1.0 package includes a FastAPI backend, Next.js frontend, a four-role controlled processing pipeline, human approvals, Alembic migrations, and tests.
+## Intended application (v1.0 source package)
+- FastAPI backend with controlled AI workflow pipeline
+- Next.js frontend, login prototype, dashboard, sample inbox and approvals
+- Database models and Alembic migration
+- Unit and integration tests
 
-Earlier local checks: 17 backend tests passed and 11 frontend source checks passed. Full Next.js build and browser E2E remain unverified.
-
-## Security
-Never commit `.env` files, API keys, customer data, databases, or employer-owned source code. No live business integrations are enabled.
+Local ZIP package previously passed 17 backend checks and 11 frontend source checks, but the full Next.js build and browser end-to-end tests have not been verified.
 
 ## Next steps
-Import all files from the prepared `ai-workflow-assistant-v1.0-github-ready.zip` package, then enable GitHub Actions and validate full builds before deployment.
+Import the remaining frontend and backend directories from the prepared project ZIP, verify no secrets or private data are included, run CI, fix build failures, and only then prepare private deployment.
+
+Never commit API keys, .env files, customer data, local databases, or employer-owned code.
