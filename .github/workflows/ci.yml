@@ -39,7 +39,7 @@ jobs:
       - run: npm test
   frontend-build:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 20
     env:
       NEXT_TELEMETRY_DISABLED: '1'
       BACKEND_API_KEY: ci-only-not-production
@@ -59,6 +59,18 @@ jobs:
         working-directory: frontend
       - run: npm run build
         working-directory: frontend
-      - run: python -m pip install -r backend/requirements.txt
+      - run: python -m pip install -r backend/requirements.txt -r scripts/browser_requirements.txt
       - name: Full-stack HTTP integration
         run: python scripts/smoke_fullstack.py
+      - name: Install browser engines
+        run: python -m playwright install --with-deps chromium webkit
+      - name: Desktop and mobile browser workflows over HTTPS
+        run: python scripts/smoke_browser.py
+      - name: Save synthetic browser screenshots and results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: browser-test-results
+          path: browser-artifacts/
+          retention-days: 7
+          if-no-files-found: ignore

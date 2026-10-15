@@ -1,6 +1,5 @@
 import {NextRequest,NextResponse} from 'next/server';
 import {isAllowedOrigin} from './lib/request-origin.mjs';
-
 const COOKIE='awa_session';
 const encoder=new TextEncoder();
 function constantTimeEqual(a:string,b:string){let d=a.length^b.length;for(let i=0;i<Math.max(a.length,b.length);i++)d|=(a.charCodeAt(i)||0)^(b.charCodeAt(i)||0);return d===0;}
@@ -14,7 +13,8 @@ async function validSession(value:string,secret:string):Promise<boolean>{
 }
 export async function middleware(req:NextRequest){
  const secret=process.env.SESSION_SECRET;
- if(!secret || secret.length<32 || !process.env.APP_USERNAME || !process.env.APP_PASSWORD || !process.env.APP_ORIGIN)
+ const origin=process.env.APP_ORIGIN;
+ if(!secret || secret.length<32 || !process.env.APP_USERNAME || !process.env.APP_PASSWORD || !origin || !isAllowedOrigin(origin,origin))
   return new NextResponse('Configure APP_ORIGIN, APP_USERNAME, APP_PASSWORD and SESSION_SECRET (32+ chars)',{status:503});
  const path=req.nextUrl.pathname;
  const publicPath=path==='/login'||path==='/api/auth/login';
@@ -25,13 +25,13 @@ export async function middleware(req:NextRequest){
  const authenticated=await validSession(req.cookies.get(COOKIE)?.value||'',secret);
  if(!authenticated){
   if(path.startsWith('/api/'))return NextResponse.json({detail:'Authentication required'},{status:401});
-  return NextResponse.redirect(new URL('/login',req.url));
+  // Use the public origin, not an internal container hostname behind TLS termination.
+  return NextResponse.redirect(new URL('/login',origin));
  }
  if(!['GET','HEAD','OPTIONS'].includes(req.method)){
-  const origin=req.headers.get('origin');
-  if(!isAllowedOrigin(origin,process.env.APP_ORIGIN))return NextResponse.json({detail:'Invalid request origin'},{status:403});
+  if(!isAllowedOrigin(req.headers.get('origin'),origin))return NextResponse.json({detail:'Invalid request origin'},{status:403});
  }
-  const result=NextResponse.next();
+ const result=NextResponse.next();
  result.headers.set('X-Content-Type-Options','nosniff');
  result.headers.set('Referrer-Policy','no-referrer');
  result.headers.set('X-Frame-Options','DENY');

@@ -1,0 +1,8 @@
+/* Small-screen usability for the login and workflow prototype. */
+input,select,button{font:inherit}
+input{display:block;width:100%;max-width:100%;padding:11px 12px;margin-top:6px;border:1px solid #bcc9db;border-radius:8px;background:white;color:#172337;font-size:16px}
+input:focus-visible{outline:3px solid #82b1ff;outline-offset:2px}
+select{max-width:100%;min-height:40px;padding:8px}
+.record>div,.metrics article{min-width:0}
+h3,.trace small,footer{overflow-wrap:anywhere}
+@media(max-width:590px){button,select{min-height:44px}.nav button{flex-shrink:0}.flow-card{padding:14px}.actions{width:100%}.actions button{flex:1}.run-details{padding:14px}}

@@ -1,0 +1,2 @@
+# Pin the browser automation and matching browser binaries for repeatable CI.
+playwright==1.55.0
