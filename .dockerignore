@@ -1,0 +1,14 @@
+.git
+**/node_modules
+**/.next
+**/.env
+**/.env.*
+**/*.db
+**/*.db-*
+**/*.sqlite*
+**/__pycache__
+**/.pytest_cache
+**/*.pyc
+**/*.tsbuildinfo
+browser-artifacts
+*.zip

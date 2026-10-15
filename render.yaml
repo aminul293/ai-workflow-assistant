@@ -1,0 +1,26 @@
+# Optional one-service, disposable preview. Importing this file in Render creates
+# a service; committing it to GitHub alone creates nothing and incurs no hosting.
+services:
+  - type: web
+    name: ai-workflow-assistant-preview
+    runtime: docker
+    repo: https://github.com/aminul293/ai-workflow-assistant
+    branch: main
+    plan: free
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    healthCheckPath: /login
+    autoDeployTrigger: "off"
+    envVars:
+      - key: APP_USERNAME
+        value: owner
+      - key: APP_PASSWORD
+        generateValue: true
+      - key: SESSION_SECRET
+        generateValue: true
+      - key: BACKEND_API_KEY
+        generateValue: true
+      - key: AI_PROVIDER
+        value: mock
+      - key: DATA_DIR
+        value: /tmp/awa-preview

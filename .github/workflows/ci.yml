@@ -74,3 +74,15 @@ jobs:
           path: browser-artifacts/
           retention-days: 7
           if-no-files-found: ignore
+  preview-container:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Build disposable preview image without publishing
+        run: docker build -t awa-preview:ci .
+      - name: Test protected preview image on loopback
+        run: python scripts/smoke_container.py

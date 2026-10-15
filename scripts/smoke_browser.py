@@ -8,7 +8,6 @@ Screenshots contain synthetic fixtures only; credentials and traces are not save
 """
 import json
 import os
-import re
 import secrets
 import ssl
 import subprocess
@@ -118,13 +117,15 @@ def scenario(playwright, name, engine, options):
             page.set_default_timeout(15000)
             errors = []
             page.on('pageerror', lambda error: errors.append(str(error)))
+            # Scope app alerts to main; Next.js also has a route-announcer alert.
+            app_alert = page.locator('main [role="alert"]')
             try:
                 page.goto(origin + '/')
                 expect(page).to_have_url(origin + '/login')
                 page.get_by_label('Username').fill(env['APP_USERNAME'])
                 page.get_by_label('Password').fill('incorrect-password')
                 page.get_by_role('button', name='Sign in', exact=True).click()
-                expect(page.get_by_role('alert')).to_contain_text('Sign-in failed')
+                expect(app_alert).to_contain_text('Sign-in failed')
                 page.get_by_label('Password').fill(env['APP_PASSWORD'])
                 page.get_by_role('button', name='Sign in', exact=True).click()
                 expect(page.get_by_role('heading', name='Overview', exact=True)).to_be_visible()
@@ -148,7 +149,7 @@ def scenario(playwright, name, engine, options):
 
                 page.get_by_role('button', name='Tasks', exact=True).click()
                 page.locator('.record select').select_option('done')
-                expect(page.get_by_role('alert')).to_contain_text('approved review')
+                expect(app_alert).to_contain_text('approved review')
                 page.get_by_role('button', name='Approvals', exact=True).click()
                 page.get_by_role('button', name='Approve', exact=True).click()
                 expect(page.locator('.record .tag')).to_have_text('approved')
@@ -167,7 +168,7 @@ def scenario(playwright, name, engine, options):
                 expect(page.locator('.record .tag').filter(has_text='rejected')).to_have_count(1)
                 page.get_by_role('button', name='Tasks', exact=True).click()
                 page.locator('.record').filter(has_text='Invoice question').locator('select').select_option('done')
-                expect(page.get_by_role('alert')).to_contain_text('approved review')
+                expect(app_alert).to_contain_text('approved review')
                 checks.append('rejection prevents task completion')
 
                 page.get_by_role('button', name='Workflows', exact=True).click()
