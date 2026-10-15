@@ -1,3 +1,7 @@
-# Source import
+# Source import complete
 
-The v1.1 project source exists in the prepared ZIP but is not yet fully committed to this repository. Do not deploy this incomplete repository.
+The backend, frontend, migrations, tests and smoke-test scripts are imported.
+The dashboard-to-backend proxy route was corrected during import.
+
+Source completeness is not deployment readiness. Check the CI run for the
+current commit. No cloud service or live customer integration is configured.
