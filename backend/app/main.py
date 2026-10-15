@@ -9,7 +9,7 @@ import time
 from secrets import token_hex
 import re
 from datetime import datetime, timezone
-from typing import Optional
+from typing import Optional, Literal
 from uuid import uuid4
 
 from fastapi import Depends, FastAPI, HTTPException, Request
@@ -17,8 +17,9 @@ from app.ai_processor import extract, mock_extract, ProcessorError
 from app.agents import run_agents, AGENTS
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
-from pydantic import BaseModel, Field
-from sqlalchemy import DateTime, ForeignKey, String, Text, create_engine, select, func, text
+from pydantic import BaseModel, Field, field_validator
+from sqlalchemy import DateTime, ForeignKey, String, Text, create_engine, select, func, text, update
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import DeclarativeBase, Mapped, Session, mapped_column, sessionmaker
 
 DATABASE_URL = os.getenv('DATABASE_URL', 'sqlite:///./workflow_dev.db')
@@ -87,7 +88,7 @@ WORKFLOW_NODES = [
     {'id':'classification_agent','name':'Classification agent','kind':'agent','description':'Extract category and urgency'},
     {'id':'planning_agent','name':'Task planning agent','kind':'agent','description':'Propose task without side effects'},
     {'id':'quality_agent','name':'Quality review agent','kind':'agent','description':'Check output and flag manual review'},
-    {'id':'task','name':'Create task','kind':'action','description':'Commit approved task proposal'},
+    {'id':'task','name':'Create task','kind':'action','description':'Create a pending-review task; approval is still required'},
     {'id':'approval','name':'Human approval','kind':'review','description':'Queue response draft for review'},
 ]
 
@@ -98,7 +99,36 @@ class MessageIn(BaseModel):
     sender: str = Field(min_length=3, max_length=255)
     subject: str = Field(min_length=1, max_length=255)
     body: str = Field(min_length=1, max_length=10000)
-    source_id: Optional[str] = None
+    source_id: Optional[str] = Field(default=None, min_length=1, max_length=80)
+
+    @field_validator('sender', 'subject', 'body', 'source_id')
+    @classmethod
+    def reject_blank(cls, value):
+        if value is None:
+            return None
+        value = value.strip()
+        if not value:
+            raise ValueError('Must not be blank')
+        return value
+
+class FictionalMessageIn(MessageIn):
+    # Guardrails for manual preview input, not a personal-data detection system.
+    source_id: str = Field(min_length=1, max_length=80)
+    synthetic_ack: Literal[True]
+
+    @field_validator('synthetic_ack', mode='before')
+    @classmethod
+    def explicit_acknowledgement(cls, value):
+        if value is not True:
+            raise ValueError('Confirm that this is fictional data')
+        return value
+
+    @field_validator('sender')
+    @classmethod
+    def fictional_sender(cls, value):
+        if not re.fullmatch(r'[A-Z0-9._%+-]+@(?:[A-Z0-9](?:[A-Z0-9-]*[A-Z0-9])?\.)+test', value, re.I):
+            raise ValueError('Use a fictional sender address ending in .test')
+        return value
 
 class BatchIn(BaseModel):
     messages: list[MessageIn] = Field(min_length=1, max_length=50)
@@ -106,11 +136,12 @@ class BatchIn(BaseModel):
 class DecisionIn(BaseModel):
     decision: str
     draft: Optional[str] = None
+    expected_draft: Optional[str] = Field(default=None, max_length=2000)
 
 class TaskUpdate(BaseModel):
     status: str
 
-app = FastAPI(title='AI Workflow Assistant API', version='1.1.0')
+app = FastAPI(title='AI Workflow Assistant API', version='1.2.0')
 app.add_middleware(CORSMiddleware, allow_origins=os.getenv('FRONTEND_ORIGINS', 'http://localhost:3000').split(','), allow_credentials=False, allow_methods=['GET','POST','PATCH'], allow_headers=['Content-Type'])
 
 logger = logging.getLogger('workflow_assistant')
@@ -159,7 +190,7 @@ def approval_json(a: Approval):
 
 @app.get('/api/health')
 def health():
-    return {'ok':True, 'mode':'synthetic_only', 'version':'1.1.0', 'ai_provider':os.getenv('AI_PROVIDER','mock')}
+    return {'ok':True, 'mode':'synthetic_only', 'version':'1.2.0', 'ai_provider':os.getenv('AI_PROVIDER','mock')}
 
 @app.get('/api/ready')
 def readiness():
@@ -199,6 +230,31 @@ def add_sample(payload:MessageIn,db:Session=Depends(get_db)):
     m=Message(id=str(uuid4()),source_id=source_id,sender=payload.sender,subject=payload.subject,body=payload.body,status='new')
     db.add(m);audit(db,'message_created',m.id,'Synthetic sample message added');db.commit()
     return message_json(m)
+
+@app.post('/api/inbox/fictional', status_code=201)
+def add_fictional(payload: FictionalMessageIn, db: Session = Depends(get_db)):
+    """Retry-safe manual intake with explicit fictional-data acknowledgement."""
+    def existing_result(existing):
+        if (existing.sender, existing.subject, existing.body) != (payload.sender, payload.subject, payload.body):
+            raise HTTPException(409, 'This inquiry was already saved with different text. Reload the inbox before creating another.')
+        return message_json(existing)
+
+    existing = db.scalar(select(Message).where(Message.source_id == payload.source_id))
+    if existing:
+        return existing_result(existing)
+    message = Message(id=str(uuid4()), source_id=payload.source_id,
+                      sender=payload.sender, subject=payload.subject, body=payload.body, status='new')
+    db.add(message)
+    audit(db, 'message_created', message.id, 'Manual fictional inquiry added; no external integration')
+    try:
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        existing = db.scalar(select(Message).where(Message.source_id == payload.source_id))
+        if existing:
+            return existing_result(existing)
+        raise
+    return message_json(message)
 
 def classify(text: str):
     result=mock_extract('',text)
@@ -270,7 +326,7 @@ def update_task(task_id:str,payload:TaskUpdate,db:Session=Depends(get_db)):
     if not t: raise HTTPException(404,'Task not found')
     if payload.status in ('open','in_progress','done'):
         approval=db.scalar(select(Approval).where(Approval.task_id==t.id))
-        if approval is not None and approval.decision != 'approved':
+        if approval is None or approval.decision != 'approved':
             raise HTTPException(409, 'Task requires an approved review before progressing')
     t.status=payload.status;audit(db,'task_updated',t.id,payload.status);db.commit()
     return task_json(t)
@@ -285,11 +341,19 @@ def decide(approval_id:str,payload:DecisionIn,db:Session=Depends(get_db)):
     a=db.get(Approval,approval_id)
     if not a: raise HTTPException(404,'Approval not found')
     if a.decision != 'pending': raise HTTPException(409,'Approval already decided')
-    if payload.draft is not None:
-        if not payload.draft.strip() or len(payload.draft)>2000:
-            raise HTTPException(422,'Draft must contain 1 to 2000 characters')
-        a.draft=payload.draft
-    a.decision=payload.decision;a.decided_at=datetime.now(timezone.utc)
+    next_draft = a.draft if payload.draft is None else payload.draft
+    if not next_draft.strip() or len(next_draft)>2000:
+        raise HTTPException(422,'Draft must contain 1 to 2000 characters')
+    expected = a.draft if payload.expected_draft is None else payload.expected_draft
+    # Compare-and-set makes only one decision win, even from two browser tabs.
+    changed = db.execute(update(Approval).where(
+        Approval.id == a.id, Approval.decision == 'pending', Approval.draft == expected
+    ).values(draft=next_draft, decision=payload.decision, decided_at=datetime.now(timezone.utc))
+      .execution_options(synchronize_session=False))
+    if changed.rowcount != 1:
+        db.rollback()
+        raise HTTPException(409, 'Draft changed or was already reviewed. Reload before deciding.')
+    db.refresh(a)
     t=db.get(Task,a.task_id)
     if t:
         t.status='open' if payload.decision=='approved' else 'pending_review'

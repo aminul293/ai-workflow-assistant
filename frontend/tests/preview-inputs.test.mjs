@@ -1,0 +1,13 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {validateInquiry,validateDraft,apiErrorMessage} from '../lib/preview-inputs.mjs';
+const inquiry=()=>({sender:'invented@sample.test',subject:'Fictional request',body:'Schedule a fictional visit.',synthetic_ack:true});
+test('fictional inquiry accepts test address and explicit acknowledgement',()=>assert.equal(validateInquiry(inquiry()),''));
+test('live-domain addresses are rejected',()=>{for(const sender of ['a@example.com','a@test.evil','a@.test','no-address'])assert.notEqual(validateInquiry({...inquiry(),sender}),'');});
+test('fictional-data acknowledgement is mandatory',()=>{for(const synthetic_ack of [false,null,1,'true'])assert.notEqual(validateInquiry({...inquiry(),synthetic_ack}),'');});
+test('required fields cannot be whitespace',()=>{for(const field of ['sender','subject','body'])assert.notEqual(validateInquiry({...inquiry(),[field]:'  '}),'');});
+test('inquiry length limits are enforced',()=>{for(const [field,length] of [['sender',256],['subject',256],['body',10001]])assert.notEqual(validateInquiry({...inquiry(),[field]:'x'.repeat(length)}),'');});
+test('draft validates boundaries',()=>{assert.equal(validateDraft('x'.repeat(2000)),'');assert.notEqual(validateDraft('x'.repeat(2001)),'');assert.notEqual(validateDraft(' \n '),'');});
+test('string API errors are readable',()=>assert.equal(apiErrorMessage({detail:'Conflict'}),'Conflict'));
+test('validation arrays become readable messages',()=>assert.equal(apiErrorMessage({detail:[{msg:'Invalid sender'},{msg:'Confirm fictional data'}]}),'Invalid sender Confirm fictional data'));
+test('unknown API errors have a safe fallback',()=>{for(const data of [null,{},'bad',{detail:[null,{msg:123}]}])assert.equal(apiErrorMessage(data),'Request failed. Please retry.');});
